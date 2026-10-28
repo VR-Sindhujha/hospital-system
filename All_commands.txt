@@ -1,0 +1,508 @@
+from pathlib import Path
+
+content = """24MIS0098 — HOSPITAL SYSTEM
+LAB PROCEDURE + COMMANDS (WINDOWS / POWERSHELL)
+================================================
+
+FEATURES
+v1 = Add Patient (register patient)
+v2 = View (display patient list)
+v3 = Delete (remove patient record)
+
+READ THIS FIRST
+- Do NOT paste application code again. The code is already in the ZIP you downloaded.
+- This procedure tells you WHEN to use the existing code and WHEN to edit it.
+- Open the extracted hospital-system-offline-pack folder in VS Code.
+- Replace YOUR_GITHUB_USERNAME and YOUR_DOCKERHUB_USERNAME wherever shown.
+- Use PowerShell in VS Code.
+- If the lab internet is disconnected, you can do local editing/commits and any tests/builds whose dependencies/images are already available. GitHub/Docker Hub pushes and downloads need connectivity.
+- IMPORTANT: For the git switch -c v2 / git switch -c v3 workflow, work from the files at the project root. The ZIP has each version in its own folder. Start by copying the CONTENTS of the v1 folder into a new working folder named hospital-system-work (do not copy the v1 folder itself inside it). Use that working folder for Git/Jenkins/Docker/Kubernetes steps below.
+
+================================================
+STAGE 1 — OPEN THE PROJECT AND CHECK TOOLS
+================================================
+
+1. Extract hospital-system-offline-pack.zip.
+
+2. Create a new folder beside the extracted pack named:
+   hospital-system-work
+
+3. Copy ALL files from:
+   hospital-system-offline-pack\\v1\\
+   into:
+   hospital-system-work\\
+   Copy the files themselves, not the v1 folder.
+
+   The hospital-system-work folder should contain:
+   app.py, test_app.py, requirements.txt, Dockerfile, Jenkinsfile,
+   k8s-deployment.yaml, service.yaml, .gitignore, and .dockerignore.
+
+4. Open hospital-system-work in VS Code:
+   File -> Open Folder -> hospital-system-work
+
+5. Open Terminal -> New Terminal. Check that the terminal path ends in hospital-system-work.
+
+Run:
+
+pwd
+git --version
+python --version
+python -m pip --version
+docker --version
+docker info
+kubectl version --client
+kubectl config current-context
+kubectl get nodes
+
+If a tool is not installed, record that. Do not repeatedly retry internet downloads while offline.
+
+================================================
+STAGE 2 — v1: ADD PATIENT
+================================================
+
+6. CODING ACTION FOR v1:
+   Open the existing app.py copied from the v1 folder. It should already contain the Add Patient implementation. Do NOT replace it with v2/v3 code.
+   Open test_app.py and use the existing v1 tests.
+   Check requirements.txt, Dockerfile, .dockerignore, and .gitignore; keep the existing files.
+
+7. In the terminal, check dependencies:
+
+python -m pip show Flask
+python -m pip show pytest
+
+If Flask or pytest is unavailable and internet is disconnected, ask the instructor for the approved offline packages.
+
+8. Run v1 tests:
+
+python -m unittest -v
+
+9. Start v1:
+
+python app.py
+
+10. Open a SECOND terminal and run:
+
+curl http://127.0.0.1:5000/health
+
+Test Add Patient:
+
+Invoke-RestMethod -Uri http://127.0.0.1:5000/patients -Method Post -ContentType "application/json" -Body '{"name":"Patient A"}'
+
+11. Stop the app with Ctrl+C in the terminal running app.py.
+
+================================================
+STAGE 3 — INITIALIZE GIT AND PUSH v1
+================================================
+
+12. In the terminal, confirm you are inside hospital-system-work:
+
+pwd
+git status
+
+If Git says this is not a repository, initialize it:
+
+git init
+git config user.name "YOUR NAME"
+git config user.email "YOUR_EMAIL"
+
+13. Create the first commit:
+
+git add .
+git commit -m "Hospital System v1 - Add Patient"
+git branch -M main
+
+14. Create the v1 branch:
+
+git switch -c v1
+
+15. Check:
+
+git branch
+git log --oneline
+
+16. When internet is available, create an EMPTY GitHub repository named hospital-system. Do not initialize it with README, .gitignore, or license.
+
+17. Add the remote:
+
+git remote add origin https://github.com/YOUR_GITHUB_USERNAME/hospital-system.git
+
+If origin already exists, use this instead of adding it again:
+
+git remote -v
+
+18. Push v1:
+
+git push -u origin v1
+
+If offline, leave this push until connectivity returns.
+
+================================================
+STAGE 4 — v1 JENKINS PIPELINE
+================================================
+
+19. CODING ACTION FOR v1 JENKINS:
+    Open the existing Jenkinsfile in the working-folder root.
+    Replace YOUR_GITHUB_USERNAME with your GitHub username.
+    Replace YOUR_DOCKERHUB_USERNAME with your Docker Hub username.
+    Keep the v1 branch and v1 image tag. Do not edit v2/v3 pipeline settings yet.
+    Save Jenkinsfile.
+
+20. Commit the Jenkinsfile change:
+
+git add Jenkinsfile
+git commit -m "Configure Jenkins pipeline for v1"
+
+21. When internet is available, push the update:
+
+git push
+
+22. Open Jenkins (usually http://localhost:8080).
+
+23. Create the v1 job:
+    - New Item
+    - Name: hospital-system-v1
+    - Select Pipeline -> OK
+    - Choose “Pipeline script from SCM”
+    - SCM: Git
+    - Repository URL: https://github.com/YOUR_GITHUB_USERNAME/hospital-system.git
+    - Branch specifier: */v1
+    - Script Path: Jenkinsfile
+    - Save -> Build Now
+    - Open build number -> Console Output
+    - Confirm checkout, dependency installation, tests, and Docker build succeed.
+
+Jenkins needs Python, required packages, and Docker available on its agent. A pipeline may fail if it needs to download packages while offline.
+
+================================================
+STAGE 5 — v1 DOCKER IMAGE
+================================================
+
+24. Ensure the v1 branch is selected:
+
+git switch v1
+
+25. Build:
+
+docker build -t YOUR_DOCKERHUB_USERNAME/hospital-system:v1 .
+
+26. Check:
+
+docker images
+
+27. Run v1 on port 5001:
+
+docker run --rm -d --name hospital-system-v1 -p 5001:5000 YOUR_DOCKERHUB_USERNAME/hospital-system:v1
+
+28. Verify:
+
+docker ps
+docker logs hospital-system-v1
+curl http://127.0.0.1:5001/health
+
+Open http://localhost:5001/ in the browser.
+
+29. Stop:
+
+docker stop hospital-system-v1
+
+30. When Docker Hub is reachable, create a Docker Hub repository named hospital-system, then run:
+
+docker login
+docker push YOUR_DOCKERHUB_USERNAME/hospital-system:v1
+
+================================================
+STAGE 6 — v1 KUBERNETES DEPLOYMENT + SERVICE
+================================================
+
+31. CODING ACTION FOR v1 KUBERNETES:
+    Open the existing k8s-deployment.yaml in the working-folder root.
+    Replace YOUR_DOCKERHUB_USERNAME with your Docker Hub username.
+    Check that it uses the v1 image tag and v1 deployment/pod labels.
+    Open the existing service.yaml and confirm its selector matches the v1 pod label and NodePort is 30081.
+    Do not copy v2/v3 settings into these files. Save changes.
+
+32. Commit manifest changes:
+
+git add k8s-deployment.yaml service.yaml
+git commit -m "Add Kubernetes deployment and service for v1"
+
+33. When internet is available, push:
+
+git push
+
+34. Apply and verify:
+
+kubectl apply -f k8s-deployment.yaml
+kubectl apply -f service.yaml
+kubectl rollout status deployment/hospital-v1
+kubectl get deployments
+kubectl get pods
+kubectl get services
+kubectl get all
+
+35. Test:
+
+curl http://localhost:30081/health
+
+Open http://localhost:30081/ in the browser.
+
+NOTE: The deployment name used in the rollout command must match metadata.name in k8s-deployment.yaml. If your existing file uses a different name, use that exact name in the command.
+
+================================================
+STAGE 7 — CREATE v2 BRANCH AND ADD VIEW PATIENT
+================================================
+
+36. IMPORTANT TIMING:
+    Finish and commit v1 first. Only now create the v2 branch.
+    Do not create v2 before the v1 work is committed.
+
+37. Create v2 from the current v1 branch:
+
+git switch v1
+git switch -c v2
+
+38. CODING ACTION FOR v2 app.py:
+    Open app.py.
+    KEEP all v1 code.
+    Add the View Patient List GET route as instructed in the previously supplied code.
+    Do not remove or rewrite the Add Patient route.
+    Save app.py.
+
+39. CODING ACTION FOR v2 test_app.py:
+    Keep the v1 tests.
+    Add the v2 test for viewing the patient list, using the previously supplied test code.
+    Save test_app.py.
+
+40. CODING ACTION FOR v2 Jenkinsfile:
+    Open Jenkinsfile.
+    Change the Git branch from v1 to v2.
+    Change the Docker image tag from v1 to v2.
+    Keep the other stages unchanged.
+    Save Jenkinsfile.
+
+41. CODING ACTION FOR v2 Kubernetes files:
+    Open k8s-deployment.yaml.
+    Change the deployment name and pod label/selector to the v2 names used by the existing v2 manifest in the ZIP.
+    Change the image tag from v1 to v2.
+    Open service.yaml.
+    Change the service name and selector to match the v2 labels.
+    Change NodePort from 30081 to 30082.
+    Keep targetPort matching the application's container port.
+    Save both files.
+    Do not copy v3 settings yet.
+
+42. Test v2:
+
+python -m unittest -v
+
+43. Commit v2 changes:
+
+git add .
+git commit -m "Hospital System v2 - View Patient List"
+
+44. Push v2 when internet is available:
+
+git push -u origin v2
+
+================================================
+STAGE 8 — v2 JENKINS, DOCKER, KUBERNETES
+================================================
+
+45. Jenkins:
+    Create a separate job named hospital-system-v2.
+    Choose Pipeline script from SCM.
+    SCM: Git.
+    Repository URL: https://github.com/YOUR_GITHUB_USERNAME/hospital-system.git
+    Branch specifier: */v2
+    Script Path: Jenkinsfile.
+    Save -> Build Now -> Console Output.
+    Confirm all stages succeed.
+
+46. Build v2:
+
+docker build -t YOUR_DOCKERHUB_USERNAME/hospital-system:v2 .
+
+47. Run and verify v2:
+
+docker run --rm -d --name hospital-system-v2 -p 5002:5000 YOUR_DOCKERHUB_USERNAME/hospital-system:v2
+docker ps
+docker logs hospital-system-v2
+curl http://127.0.0.1:5002/health
+
+Open http://localhost:5002/. Stop it:
+
+docker stop hospital-system-v2
+
+48. Push v2 when Docker Hub is reachable:
+
+docker login
+docker push YOUR_DOCKERHUB_USERNAME/hospital-system:v2
+
+49. Apply v2 Kubernetes resources:
+
+kubectl apply -f k8s-deployment.yaml
+kubectl apply -f service.yaml
+kubectl rollout status deployment/hospital-v2
+kubectl get deployments
+kubectl get pods
+kubectl get services
+
+50. Test:
+
+curl http://localhost:30082/health
+
+Open http://localhost:30082/.
+
+NOTE: As above, use the exact deployment name written in metadata.name if it differs from hospital-v2.
+
+================================================
+STAGE 9 — CREATE v3 BRANCH AND ADD DELETE PATIENT
+================================================
+
+51. IMPORTANT TIMING:
+    Finish and commit v2 first. Only now create v3 from v2.
+
+52. Create v3:
+
+git switch v2
+git switch -c v3
+
+53. CODING ACTION FOR v3 app.py:
+    Open app.py.
+    KEEP all v1 and v2 code.
+    Add the Delete Patient DELETE route from the previously supplied code.
+    Do not remove Add Patient or View Patient List.
+    Save app.py.
+
+54. CODING ACTION FOR v3 test_app.py:
+    Keep the v1 and v2 tests.
+    Add the v3 test that registers a patient, deletes that patient's ID, and verifies it no longer appears in the list, using the previously supplied test code.
+    Save test_app.py.
+
+55. CODING ACTION FOR v3 Jenkinsfile:
+    Change the Git branch from v2 to v3.
+    Change the Docker image tag from v2 to v3.
+    Keep the remaining stages unchanged.
+    Save Jenkinsfile.
+
+56. CODING ACTION FOR v3 Kubernetes files:
+    In k8s-deployment.yaml, change deployment name, labels/selectors, and image tag to v3.
+    In service.yaml, change service name and selector to match v3 labels.
+    Change NodePort from 30082 to 30083.
+    Save both files.
+
+57. Test v3:
+
+python -m unittest -v
+
+58. Commit v3:
+
+git add .
+git commit -m "Hospital System v3 - Delete Patient Record"
+
+59. Push v3 when internet is available:
+
+git push -u origin v3
+
+================================================
+STAGE 10 — v3 JENKINS, DOCKER, KUBERNETES
+================================================
+
+60. Jenkins:
+    Create a separate job named hospital-system-v3.
+    Choose Pipeline script from SCM.
+    SCM: Git.
+    Repository URL: https://github.com/YOUR_GITHUB_USERNAME/hospital-system.git
+    Branch specifier: */v3
+    Script Path: Jenkinsfile.
+    Save -> Build Now -> Console Output.
+    Confirm all stages succeed.
+
+61. Build v3:
+
+docker build -t YOUR_DOCKERHUB_USERNAME/hospital-system:v3 .
+
+62. Run and verify v3:
+
+docker run --rm -d --name hospital-system-v3 -p 5003:5000 YOUR_DOCKERHUB_USERNAME/hospital-system:v3
+docker ps
+docker logs hospital-system-v3
+curl http://127.0.0.1:5003/health
+
+Open http://localhost:5003/. Stop it:
+
+docker stop hospital-system-v3
+
+63. Push v3 when Docker Hub is reachable:
+
+docker login
+docker push YOUR_DOCKERHUB_USERNAME/hospital-system:v3
+
+64. Apply v3 Kubernetes resources:
+
+kubectl apply -f k8s-deployment.yaml
+kubectl apply -f service.yaml
+kubectl rollout status deployment/hospital-v3
+kubectl get deployments
+kubectl get pods
+kubectl get services
+
+65. Test:
+
+curl http://localhost:30083/health
+
+Open http://localhost:30083/.
+
+NOTE: Use the exact deployment name in metadata.name if it differs from hospital-v3.
+
+================================================
+STAGE 11 — FINAL CHECKS / TROUBLESHOOTING
+================================================
+
+66. Git:
+
+git branch -a
+git log --oneline --decorate --all
+git remote -v
+git status
+
+67. Docker:
+
+docker images
+docker ps -a
+
+68. Kubernetes:
+
+kubectl get deployments
+kubectl get pods
+kubectl get services
+kubectl get all
+kubectl get events --sort-by=.metadata.creationTimestamp
+
+69. If a pod fails:
+
+kubectl describe pods
+kubectl logs deployment/hospital-v1
+kubectl logs deployment/hospital-v2
+kubectl logs deployment/hospital-v3
+
+Use the actual deployment names from the YAML files if they differ.
+
+EXPECTED NODEPORTS
+v1: http://localhost:30081
+v2: http://localhost:30082
+v3: http://localhost:30083
+
+FINAL NOTES
+- Patient records are stored in memory; they are not shared between versions and can disappear after restarts.
+- GitHub push needs network access and a valid repository.
+- Docker Hub push needs network access and Docker Hub login.
+- Docker build may need the Python base image already cached locally.
+- Installing Flask/pytest may require the lab's approved offline package cache.
+- Do not mark a step complete until the command, Jenkins console, or browser confirms success.
+- The v1/v2/v3 code was provided earlier; this file intentionally describes when to use or modify it instead of repeating the code.
+"""
+
+out = Path("/mnt/data/Hospital_System_Lab_Procedure_Commands_v2.txt")
+out.write_text(content, encoding="utf-8")
+print(f"Created: {out} ({out.stat().st_size} bytes)")
