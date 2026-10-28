@@ -1,0 +1,30 @@
+pipeline {
+    agent any
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('Install Dependencies') {
+            steps {
+                bat 'python -m pip install -r requirements.txt'
+            }
+        }
+        stage('Run Unit Tests') {
+            steps {
+                bat 'python -m unittest -v'
+            }
+        }
+        stage('Build Docker Image') {
+            steps {
+                bat 'docker build -t YOUR_DOCKERHUB_USERNAME/hospital-system:v1 .'
+            }
+        }
+    }
+    post {
+        always {
+            echo 'Hospital System v1 pipeline finished.'
+        }
+    }
+}
